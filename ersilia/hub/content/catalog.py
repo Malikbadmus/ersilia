@@ -118,7 +118,7 @@ class ModelCatalog(ErsiliaBase):
         if "service_class" in card:
             return card["service_class"]
         if "Service_class" in card:
-            return card["Setvice_class"]
+            return card["Service_class"]
         return None
 
     def airtable(self):
