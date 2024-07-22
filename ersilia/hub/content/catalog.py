@@ -108,6 +108,18 @@ class ModelCatalog(ErsiliaBase):
         if "Output" in card:
             return card["Output"][0]
         return None
+    
+    def _get_model_source(self, card):
+        if "model_source" in card:
+            return card["model_source"]
+        return None
+        
+    def _get_service_class(self, card):
+        if "service_class" in card:
+            return card["service_class"]
+        if "Service_class" in card:
+            return card["Setvice_class"]
+        return None
 
     def airtable(self):
         """List models available in AirTable Ersilia Model Hub base"""
@@ -193,13 +205,14 @@ class ModelCatalog(ErsiliaBase):
                 if not self._is_eos(model_id):
                     continue
                 card = mc.get(model_id)
-                slug = self._get_slug(card)
-                title = self._get_title(card)
-                status = self._get_status(card)
-                inputs = self._get_input(card)
-                output = self._get_output(card)
-                service_class = mc.get_service_class(model_id)
-                R += [[model_id, slug, title, status, inputs, output, service_class]]
+                slug = self._get_slug(card["card"])
+                title = self._get_title(card["card"])
+                status = self._get_status(card["card"])
+                inputs = self._get_input(card["card"])
+                output = self._get_output(card["card"])
+                model_source = self._get_model_source(card)
+                service_class = self._get_service_class(card)
+                R += [[model_id, slug, title, status, inputs, output, model_source, service_class]]
             columns = [
                 "Identifier",
                 "Slug",
@@ -207,6 +220,7 @@ class ModelCatalog(ErsiliaBase):
                 "Status",
                 "Input",
                 "Output",
+                "Model Source",
                 "Service Class",
             ]
         logger.info("Found {0} models".format(len(R)))
