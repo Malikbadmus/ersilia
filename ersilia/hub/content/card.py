@@ -7,6 +7,7 @@ from ... import ErsiliaBase
 from ...utils.terminal import run_command
 from ...auth.auth import Auth
 from ...db.hubdata.interfaces import AirtableInterface
+from ...db.hubdata.json_models_interface import JsonModelsInterface
 import validators
 from functools import lru_cache
 
@@ -40,6 +41,7 @@ from ...utils.exceptions_utils.card_exceptions import (
     MemoryGbBaseInformationError,
 )
 from ...utils.identifiers.model import ModelIdentifier
+from ...utils.logging import make_temp_dir
 
 try:
     from isaura.core.hdf5 import Hdf5Explorer
@@ -620,7 +622,7 @@ class ReadmeCard(ErsiliaBase):
         return url
 
     def _gh_view(self, model_id):
-        tmp_folder = tempfile.mkdtemp(prefix="ersilia-")
+        tmp_folder = make_temp_dir(prefix="ersilia-")
         tmp_file = os.path.join(tmp_folder, "view.md")
         cmd = "gh repo view {0}/{1} > {2}".format("ersilia-os", model_id, tmp_file)
         run_command(cmd)
@@ -757,11 +759,23 @@ class LakeCard(ErsiliaBase):
             return card
 
 
+class S3JsonCard(JsonModelsInterface):
+    def __init__(self, config_json=None):
+        JsonModelsInterface.__init__(self, config_json=config_json)
+
+    def get(self, model_id):
+        all_models = self.items_all()
+        for model in all_models:
+            if model["Identifier"] == model_id:
+                return model
+
+
 class ModelCard(object):
     def __init__(self, config_json=None):
 
         self.lc = LocalCard(config_json=config_json)
         self.mc = MetadataCard(config_json=config_json)
+        self.jc = S3JsonCard(config_json=config_json)
         self.ac = AirtableCard(config_json=config_json)
         self.rc = ReadmeCard(config_json=config_json)
 
@@ -770,6 +784,9 @@ class ModelCard(object):
         if card is not None:
             return card
         card = self.mc.get(model_id)
+        if card is not None:
+            return card
+        card = self.jc.get(model_id)
         if card is not None:
             return card
         card = self.ac.get(model_id)

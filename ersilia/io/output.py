@@ -12,8 +12,10 @@ from ..serve.schema import ApiSchema
 from .. import ErsiliaBase
 from ..utils.hdf5 import Hdf5Data, Hdf5DataStacker
 from ..db.hubdata.interfaces import AirtableInterface
+from ..db.hubdata.json_models_interface import JsonModelsInterface
 from ..default import FEATURE_MERGE_PATTERN, PACK_METHOD_FASTAPI
 from ..utils.paths import resolve_pack_method
+from ..utils.logging import make_temp_dir
 
 
 class DataFrame(object):
@@ -247,20 +249,41 @@ class GenericOutputAdapter(ResponseRefactor):
                 output_keys_expanded += [ok]
         return output_keys_expanded
 
+    def _get_outputshape_from_s3_models_json(self, model_id):
+        s3_models_interface = JsonModelsInterface(config_json=self.config_json)
+        output_shape = None
+        for mdl in s3_models_interface.items():
+            _model_id = mdl["Identifier"]
+            try:
+                if _model_id == model_id:
+                    output_shape = mdl["Output Shape"]
+            except KeyError:
+                self.logger.warning("The Output Shape key is missing")
+        return output_shape
+
     def _get_outputshape_from_airtable(self, model_id):
         airtable_interface = AirtableInterface(config_json=self.config_json)
-        output_shape = " "
+        output_shape = None
         for record in airtable_interface.items():
-            model_idi = record["fields"]["Identifier"]
+            _model_id = record["fields"]["Identifier"]
             try:
-                if model_idi == model_id:
+                if _model_id == model_id:
                     output_shape = record["fields"]["Output Shape"]
             except KeyError:
                 self.logger.warning("The Output Shape field is empty")
         return output_shape
 
+    def _get_outputshape(self, model_id):
+        output_shape = self._get_outputshape_from_s3_models_json(
+            model_id
+        ) or self._get_outputshape_from_airtable(model_id)
+        if output_shape is None:
+            self.logger.warning("Output shape not found")
+            output_shape = " "
+        return output_shape
+
     def _to_dataframe(self, result, model_id):
-        output_shape = self._get_outputshape_from_airtable(model_id)
+        output_shape = self._get_outputshape(model_id)
         result = json.loads(result)
         R = []
         output_keys = None
@@ -415,7 +438,7 @@ class DictlistDataframeConverter(GenericOutputAdapter):
         GenericOutputAdapter.__init__(self, config_json=config_json)
 
     def dictlist2dataframe(self, dl, model_id, api_name):
-        tmp_dir = tempfile.mkdtemp(prefix="ersilia-")
+        tmp_dir = make_temp_dir(prefix="ersilia-")
         df_file = os.path.join(tmp_dir, "data.csv")
         self.adapt(dl, df_file, model_id, api_name)
         df = Dataframe()
