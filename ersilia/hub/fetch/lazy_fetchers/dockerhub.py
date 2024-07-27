@@ -10,7 +10,6 @@ from ....default import (
     PREDEFINED_EXAMPLE_FILES,
     INFORMATION_FILE,
     API_SCHEMA_FILE,
-    MODEL_SOURCE_FILE,    
 )
 
 from ...pull.pull import ModelPuller
@@ -103,12 +102,14 @@ class ModelDockerHubFetcher(ErsiliaBase):
     def modify_information(self, model_id):
         """
         Modify the information file being copied from docker container to the host machine.
-        :model_source_file: File containing the model source.
+        :param file: The model information file being copied.
+        :param service_class_file: File containing the model service class.
+        :size_file: File containing the size of the pulled docker image.
         """
         information_file = os.path.join(self._model_path(model_id), INFORMATION_FILE)
         mp = ModelPuller(model_id=model_id, config_json=self.config_json)
-        model_source_file = (self._model_path(model_id), MODEL_SOURCE_FILE)
-        
+        model_source_file = os.path.join(EOS, "tmpmodelsource.txt")
+
         try:
             with open(information_file, "r") as infile:
                 data = json.load(infile)
@@ -119,14 +120,16 @@ class ModelDockerHubFetcher(ErsiliaBase):
         try:
             with open(model_source_file, "r") as x:
                 model_source = x.read().strip()
+                os.remove(model_source_file)
         except FileNotFoundError:
             return None
+
 
         # Using this literal here to prevent a file read 
         # from service class file for a model fetched through DockerHub
         # since we already know the service class.
         data["service_class"] = "pulled_docker"
-        data["size"] = mp._get_size_of_local_docker_image_in_mb()  # TODO this should probably be a util function 
+        data["size"] = mp._get_size_of_local_docker_image_in_mb()  # TODO this should probably be a util function
         data["model_source"] = model_source
         with open(information_file, "w") as outfile:
             json.dump(data, outfile, indent=4)

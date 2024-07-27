@@ -16,7 +16,7 @@ from ...default import (
     CARD_FILE,
     SERVICE_CLASS_FILE,
     APIS_LIST_FILE,
-    MODEL_SOURCE_FILE,
+    EOS
 )
 
 
@@ -46,10 +46,12 @@ class Information(ErsiliaBase):
             return None
 
     def _get_model_source(self):
-        model_source_file = os.path.join((self.dest_folder), MODEL_SOURCE_FILE)
-        if os.path.exists(model_source_file):
-            with open(model_source_file) as f:
-                return f.read().rstrip()
+        file = os.path.join(EOS, "tmpmodelsource.txt")
+        if os.path.exists(file):
+            with open(file) as f:
+                content = f.read().rstrip()
+            os.remove(file)
+            return content
         else:
             return None
 
@@ -181,3 +183,4 @@ class InformationDisplayer(ErsiliaBase):
         self._docker_info()
         text = "For more information, please visit https://ersilia.io/model-hub"
         self._echo(text, fg="black")
+
